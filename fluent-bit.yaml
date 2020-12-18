@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentbit-config
+  namespace: vmware-system-logging
+  labels:
+    name: fluentbit
+data:
+  plugins.conf: |
+    [PLUGINS]
+        Path  /fluent-bit/bin/out_syslog.so
+
+  parsers.conf: |
+    [PARSER]
+        Name              docker
+        Format            json
+        Time_Key          time
+        Time_Format       %Y-%m-%dT%H:%M:%S.%L
+        Decode_Field_As   escaped_utf8  log
+
+    [PARSER]
+        Name          json
+        Format        json
+        Time_Key      time
+        Time_Format   %d/%b/%Y:%H:%M:%S %z
+
+    [PARSER]
+        Name              systemd-json
+        Format            json
+        Decode_Field_As   escaped_utf8  MESSAGE  do_next
+
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     debug
+        Daemon        off
+        Parsers_File  parsers.conf
+        Plugins_File  plugins.conf
+
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        Parser            docker
+        DB                /var/log/vmware/fluentbit/flb_kube.db
+        Buffer_Max_Size   12MBb
+        Mem_Buf_Limit     32MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+    
+    [INPUT]
+        Name              tail
+        Tag               audit.*
+        Path              /var/log/vmware/audit/*.log
+        Parser            docker
+        DB                /var/log/vmware/fluentbit/flb_kafka.db
+        Buffer_Max_Size   12MBb
+        Mem_Buf_Limit     32MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    [INPUT]
+        Name                systemd
+        Tag                 systemd.*
+        Path                /var/log/journal
+        Systemd_Filter      _SYSTEMD_UNIT=kubelet.service
+        DB                  /var/log/vmware/fluentbit/flb_systemd.db
+        Read_From_Tail      Off
+        Parser              systemd-json
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://localhost:6443
+        # enable tls.verify
+        tls.verify          Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Kube_Tag_Prefix     kube.var.log.containers.
+
+    [FILTER]
+        Name           record_modifier
+        Match          systemd.*
+        Whitelist_key  _CMDLINE
+        Whitelist_key  _EXE
+        Whitelist_key  _HOSTNAME
+        Whitelist_key  _PID
+        Whitelist_key  MESSAGE
+        Whitelist_key  SYSLOG_IDENTIFIER
+
+    [FILTER]
+        Name    modify
+        Match   systemd.*
+        Rename  _CMDLINE cmdline
+        Rename  _EXE exe
+        Rename  _HOSTNAME hostname
+        Rename  _PID pid
+        Rename  SYSLOG_IDENTIFIER unit
+        Rename  MESSAGE log
+
+    [FILTER]
+        Name grep
+        Match audit.*
+        Regex verb (?:create|delete)
+
+    [FILTER]
+        Name grep
+        Match audit.*
+        Regex stage ResponseComplete
+
+    [OUTPUT]
+        Name            file
+        Match           *
+        Path            /var/log/vmware/fluentbit
+        File            consolidated.log
+
+    [OUTPUT]
+        Name            file
+        Match           kube.var.log.containers.nsx*
+        Path            /var/log/vmware/fluentbit
+        File            nsx-ncp.log
+
+    [OUTPUT]
+        Name            kafka
+        Match           kube.*
+        Brokers         my-cluster-kafka-external-bootstrap.kafka.svc.cluster.local:9094
+        Topics          containerlog
+        File            kafka-container-log.log
+
+    [OUTPUT]
+        Name            kafka
+        Match           audit.*
+        Brokers         my-cluster-kafka-external-bootstrap.kafka.svc.cluster.local:9094
+        Topics          auditlog
+        File            kafka-container-log.log
+    
+    # [OUTPUT]
+    #     Name           syslog
+    #     Match          *
+    #     Addr           <LOGGING_FLUENTBIT_RSYSLOG>
+    #     InstanceName   rsyslog
+    #     Cluster        true
+    #     SanitizeHost   false

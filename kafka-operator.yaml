@@ -1,0 +1,47 @@
+apiVersion: kafka.strimzi.io/v1beta1
+kind: Kafka
+metadata:
+  name: my-cluster
+spec:
+  cruiseControl: {}
+  kafka:
+    version: 2.5.0
+    replicas: 3
+    listeners:
+      plain: {}
+      tls: {}
+      external:
+        type: loadbalancer
+        tls: false
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      log.message.format.version: "2.5"
+    storage:
+      type: ephemeral
+      #volumes:
+      #- id: 0
+        #type: ephemeral
+        #selector:
+        #  labels:
+        #    claimName: kafka-pv
+        #type: persistent-claim 
+        #size: 100Gi
+        #class: zookeeper-pv
+        #deleteClaim: false
+  zookeeper:
+    replicas: 3
+    storage:
+      type: ephemeral
+      #selector:
+      #    labels:
+      #      claimName: zookeeper-pv
+      #size: 100Gi
+      #type: persistent-claim
+      #class: zookeeper-pv
+      #deleteClaim: false
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+
