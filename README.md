@@ -29,7 +29,7 @@
     kubectl -n kafka run kafka-consumer -ti --image=strimzi/kafka:0.19.0-kafka-2.5.0 --rm=true --restart=Never -- bin/kafka-console-consumer.sh --bootstrap-server my-cluster-kafka-bootstrap:9092 --topic containerlog
     ```
      
-**This Scripts & YAML files will do necessary actions**
+** Scripts & YAML files will do necessary actions**
 * Creation of topic in Kafka
 * Rebalancing Kafka
 * Bring up the cruise control
