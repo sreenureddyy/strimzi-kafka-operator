@@ -1,4 +1,4 @@
-## Strmizi Kafka Operator on VMware Kuberbnetes WCP & GCM Clusters
+## Strmizi Kafka Operator on VMware K8s WCP/Supervisor & GCP Clusters
 
 **Procedure to Run**
  
